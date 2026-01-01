@@ -12,21 +12,21 @@ export function DashboardLayout({ children, title, description }: DashboardLayou
     <div className="min-h-screen bg-background">
       <Sidebar />
       
-      {/* Main content area */}
-      <div className="lg:pl-64 pl-[72px]">
+      {/* Main content area - responsive padding */}
+      <div className="lg:pl-64 pl-0">
         {/* Top header */}
-        <header className="sticky top-0 z-30 h-16 bg-background/80 backdrop-blur-xl border-b border-border flex items-center justify-between px-6">
-          <div>
-            <h1 className="text-xl font-semibold text-foreground">{title}</h1>
+        <header className="sticky top-0 z-30 h-16 bg-background/80 backdrop-blur-xl border-b border-border flex items-center justify-between px-4 sm:px-6">
+          <div className="pl-12 lg:pl-0">
+            <h1 className="text-lg sm:text-xl font-semibold text-foreground">{title}</h1>
             {description && (
-              <p className="text-sm text-muted-foreground">{description}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">{description}</p>
             )}
           </div>
           <UserNav />
         </header>
 
         {/* Page content */}
-        <main className="p-6">
+        <main className="p-4 sm:p-6">
           {children}
         </main>
       </div>
