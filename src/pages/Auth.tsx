@@ -4,27 +4,71 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GraduationCap, ArrowLeft } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { signInWithMicrosoft } from "@/lib/firebase";
+import { useLogin } from "@/lib/api/hooks";
+import { getErrorMessage } from "@/lib/api";
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const isSignup = searchParams.get("mode") === "signup";
-  
-  const [isLoading, setIsLoading] = useState(false);
 
-  const handleMicrosoftSignIn = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const login = useLogin();
+
+  const handleMicrosoftSignIn = async () => {
     setIsLoading(true);
-    // Simulate Microsoft auth - in production, this would connect to Microsoft OAuth
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      // Step 1: Sign in with Microsoft via Firebase
+      const firebaseResult = await signInWithMicrosoft();
+
+      if (!firebaseResult.success || !firebaseResult.idToken) {
+        toast({
+          title: "Authentication failed",
+          description: firebaseResult.error || "Failed to authenticate with Microsoft",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Step 2: Login to backend with Firebase token
+      try {
+        const loginResponse = await login.mutateAsync(firebaseResult.idToken);
+
+        // Wait a moment for auth state to propagate
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        toast({
+          title: isSignup ? "Account created!" : "Welcome back!",
+          description: isSignup
+            ? `Welcome, ${loginResponse.first_name}! Your account has been created successfully.`
+            : `Welcome back, ${loginResponse.first_name}!`,
+        });
+
+        // Navigate to dashboard on success
+        navigate("/dashboard");
+      } catch (apiError) {
+        // Handle API login errors
+        const errorMessage = getErrorMessage(apiError);
+        toast({
+          title: "Login failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      // Handle Firebase authentication errors
+      const errorMessage = getErrorMessage(error);
       toast({
-        title: isSignup ? "Account created!" : "Welcome back!",
-        description: isSignup 
-          ? "Your account has been created successfully." 
-          : "You have been logged in successfully.",
+        title: "Authentication error",
+        description: errorMessage,
+        variant: "destructive",
       });
-      navigate("/dashboard");
-    }, 1500);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -35,8 +79,8 @@ export default function Auth() {
 
       <div className="w-full max-w-md relative z-10">
         {/* Back button */}
-        <Link 
-          to="/" 
+        <Link
+          to="/"
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -55,29 +99,29 @@ export default function Auth() {
               {isSignup ? "Create an account" : "Welcome back"}
             </CardTitle>
             <CardDescription>
-              {isSignup 
-                ? "Sign up with your Microsoft account to get started" 
+              {isSignup
+                ? "Sign up with your Microsoft account to get started"
                 : "Sign in with your Microsoft account to continue"}
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-6">
             {/* Microsoft auth button */}
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="w-full h-12 gap-3 font-medium"
               onClick={handleMicrosoftSignIn}
-              disabled={isLoading}
+              disabled={isLoading || login.isPending}
             >
-              {isLoading ? (
+              {isLoading || login.isPending ? (
                 <div className="w-5 h-5 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
               ) : (
                 <>
                   <svg className="w-5 h-5" viewBox="0 0 21 21" fill="none">
-                    <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
-                    <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
-                    <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
-                    <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+                    <rect x="1" y="1" width="9" height="9" fill="#F25022" />
+                    <rect x="11" y="1" width="9" height="9" fill="#7FBA00" />
+                    <rect x="1" y="11" width="9" height="9" fill="#00A4EF" />
+                    <rect x="11" y="11" width="9" height="9" fill="#FFB900" />
                   </svg>
                   Continue with Microsoft
                 </>
@@ -87,8 +131,8 @@ export default function Auth() {
             {/* Toggle */}
             <p className="text-center text-sm text-muted-foreground">
               {isSignup ? "Already have an account?" : "Don't have an account?"}{" "}
-              <Link 
-                to={isSignup ? "/auth" : "/auth?mode=signup"} 
+              <Link
+                to={isSignup ? "/auth" : "/auth?mode=signup"}
                 className="text-primary hover:underline font-medium"
               >
                 {isSignup ? "Sign in" : "Sign up"}
